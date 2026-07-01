@@ -1,0 +1,18 @@
+# Build artifacts
+build/
+
+# Generated outputs
+result/tmp/
+result/org_IHM/
+result/warped_IHM/
+
+# Local editor state
+.vscode/
+
+# Local Codex/tooling state
+.agents/
+.codex/
+
+# OS files
+.DS_Store
+Thumbs.db
