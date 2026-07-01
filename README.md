@@ -1,31 +1,58 @@
 # [Paper Implementation] IMIHM
 
-This repository is a C++/OpenCV implementation of the method described in:
+[English](./README.md) | [中文](./README.zh.md)
 
-> Wenjie Li, Xuebin Liu, Jie Yang, Chongji Zhao, and Huan Deng, "A Color Correction Method Based on Incremental Multilevel Iterative Histogram Matching," IEEE Sensors Journal, vol. 24, no. 17, pp. 27892-27901, 2024.
+IMIHM is a C++/OpenCV implementation of an image-sequence color-correction workflow. The implementation follows the method described in the IEEE paper below and processes an ordered image folder together with precomputed transformation matrices.
 
-Paper link: https://ieeexplore.ieee.org/document/10614104  
-DOI: https://doi.org/10.1109/JSEN.2024.3432277
+## Paper
 
-This is an implementation repository, not the official paper page.
+- Title: A Color Correction Method Based on Incremental Multilevel Iterative Histogram Matching
+- IEEE Xplore: https://ieeexplore.ieee.org/document/10614104
+- DOI: https://doi.org/10.1109/JSEN.2024.3432277
+- Publication: IEEE Sensors Journal, Vol. 24, No. 17, pp. 27892-27901, Sept. 1, 2024
 
-## What It Does
+## What This Code Does
 
-The program performs image color correction for an image sequence using histogram matching and an incremental multilevel iterative histogram matching workflow. It reads a folder of input images and a folder of transformation matrices, corrects the target images sequentially, and writes intermediate and warped output images.
+The program loads an image sequence and its transformation matrices, performs incremental multilevel iterative histogram matching, and writes corrected images plus warped outputs. The main steps are:
+
+1. Load input images and `3 x 3` transformation matrices.
+2. Align adjacent images with the provided homography matrices.
+3. Estimate overlap regions and apply histogram-matching based color correction.
+4. Propagate the correction across sliced local regions in the target image.
+5. Write corrected sequence images and warped images for later mosaic inspection.
+
+## Example Result
+
+| Original mosaic | IMIHM result |
+| --- | --- |
+| ![Original mosaic](assets/original.png) | ![IMIHM result](assets/IMIHM.png) |
 
 ## Requirements
 
+- Windows
 - CMake 3.20 or newer
 - C++17 compiler
-- OpenCV 4.x
+- OpenCV 4.10.0 for the default CMake configuration
 
-The current `CMakeLists.txt` sets `OpenCV_DIR` to:
+The project can be built with another OpenCV 4.x installation, but the default `CMakeLists.txt` currently points to OpenCV 4.10.0.
 
-```txt
+## OpenCV Setup
+
+The default CMake configuration expects OpenCV at:
+
+```text
 C:/Program Files/OpenCV/opencv-4.10.0/build/install
 ```
 
-If OpenCV is installed somewhere else, update `OpenCV_DIR` in `CMakeLists.txt` before configuring the project.
+This path is configured in `CMakeLists.txt`:
+
+```cmake
+set(OpenCV_DIR "C:/Program Files/OpenCV/opencv-4.10.0/build/install")
+```
+
+If OpenCV is installed somewhere else, update `OpenCV_DIR` before configuring the project.
+
+At runtime, make sure the OpenCV runtime DLLs can be found, either by adding the OpenCV binary directory to `PATH` or by placing the DLLs next to the built executable.
 
 ## Build
 
@@ -38,58 +65,78 @@ cmake --build build --config Release
 
 This builds the `IHM` executable in the `build` directory.
 
-## Run
+## Input Data Layout
 
-Usage:
+`src/main.cpp` expects three command-line arguments:
 
-```txt
+```text
 IHM <Image Folder> <Tfm Matrix Folder> <Number of Image>
 ```
 
-Example using the included sample folders:
+The included sample input uses this layout:
+
+```text
+dataset/
+  img/
+    IMG_0073.JPG
+    IMG_0074.JPG
+    ...
+  tfm/
+    00__H_.txt
+    01__H_.txt
+    ...
+    shape.txt
+    shift__H.txt
+```
+
+The image folder must contain exactly `Number of Image` images. The transformation matrix folder must contain one `3 x 3` matrix text file for each image, plus `shape.txt` and `shift__H.txt`.
+
+The program sorts file paths before processing them, so keep file names ordered consistently.
+
+Output paths are currently hard-coded in `src/global_folder_paths.cpp`:
+
+```cpp
+std::string resultFolder = "C:/Timothy/Code/IHM/result/";
+```
+
+Change this path before running if outputs should be written somewhere else.
+
+## Run
+
+After building, run the generated executable with the image folder, transformation matrix folder, and image count:
 
 ```powershell
 .\build\IHM.exe .\dataset\img .\dataset\tfm 10
 ```
 
-The image folder should contain exactly `Number of Image` images. The transformation matrix folder should contain:
+Corrected outputs are written to:
 
-- one `3 x 3` transformation matrix text file for each image
-- `shape.txt`
-- `shift__H.txt`
-
-The program sorts the file paths before processing them, so keep file names ordered consistently.
-
-## Output
-
-Output paths are currently configured in `src/global_folder_paths.cpp`.
-
-By default, the code writes to:
-
-```txt
-C:/Timothy/Code/IHM/result/
+```text
+<result-folder>/org_IHM/
+<result-folder>/warped_IHM/
 ```
 
-Before running on another machine, update `resultFolder` in `src/global_folder_paths.cpp` or make sure the configured folders exist.
+Intermediate debug images are written to:
 
-The output folders are:
-
-- `result/tmp/`: intermediate debug images
-- `result/org_IHM/`: color-corrected sequence images
-- `result/warped_IHM/`: warped color-corrected images
+```text
+<result-folder>/tmp/
+```
 
 ## Project Structure
 
-```txt
-include/   Header files
-src/       Implementation files
-dataset/   Sample input images and transformation matrices
-assets/    Example visual results
-result/    Generated output images
-```
+- `src/main.cpp`: command-line parsing and end-to-end image-sequence processing flow.
+- `src/ihm.cpp`, `include/ihm.hpp`: incremental multilevel iterative histogram matching flow.
+- `src/hm.cpp`, `include/hm.hpp`: histogram calculation, CDF mapping, and color correction utilities.
+- `src/loader.cpp`, `include/loader.hpp`: image and transformation-matrix loading.
+- `src/util.cpp`, `include/util.hpp`: perspective transformation, overlap estimation, and output-folder cleanup.
+- `src/global_folder_paths.cpp`, `include/global_folder_paths.hpp`: hard-coded output directory configuration.
+- `dataset/`: sample images and transformation matrices.
+- `assets/`: example result images used by this README.
 
 ## Copyright Notes
 
-This repository references the IEEE paper for attribution and does not include the paper PDF, paper text, paper figures, or paper tables. The paper remains owned by its respective copyright holders. If you distribute this repository publicly, do not add the IEEE PDF or reproduce IEEE-provided figures/tables unless you have the required permission or license.
+This repository is intended to contain an independent implementation of the paper method. It should not redistribute the IEEE paper PDF, extracted figures, tables, screenshots, or long verbatim passages from the paper unless permission is granted by the rights holder.
 
-Add a separate repository license if you want to define how others may use this implementation code.
+The README only provides bibliographic information and links to the IEEE Xplore page/DOI. Before uploading generated images, datasets, or evaluation files, also verify the license or redistribution terms of the source dataset.
+
+No project license file is currently included. If this repository is meant to be open source, add a `LICENSE` file before publishing so downstream users know how the implementation code may be used.
